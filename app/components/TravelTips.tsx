@@ -201,7 +201,25 @@ export default function TravelTips() {
     }, 300);
   };
 
-  if (!visible || dismissed) return null;
+  const handleReopen = () => {
+    setDismissed(false);
+    setVisible(true);
+  };
+
+  // When dismissed: show small toggle button
+  if (dismissed) {
+    return (
+      <button
+        onClick={handleReopen}
+        className="fixed bottom-4 right-4 z-50 p-3 rounded-full backdrop-blur-2xl bg-zinc-900/80 border border-white/[0.08] shadow-xl shadow-black/30 hover:bg-zinc-800/90 hover:scale-105 transition-all duration-300 group"
+        aria-label="Reisetipps anzeigen"
+      >
+        <Lightbulb className="w-4 h-4 text-amber-400 group-hover:text-amber-300 transition-colors" />
+      </button>
+    );
+  }
+
+  if (!visible) return null;
 
   const tip = tips[currentTip];
 
