@@ -170,12 +170,22 @@ export default function Page() {
   return (
     <div className="min-h-screen bg-[#030712] text-gray-100 overflow-x-hidden">
       {/* ═══ NAV ═════════════════════════════════════════════════════ */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#030712]/60 backdrop-blur-2xl border-b border-white/[0.04]">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#030712]/70 backdrop-blur-2xl border-b border-white/[0.04]">
         <div className="max-w-6xl mx-auto px-6 h-12 flex items-center justify-between">
-          <a href="#" className="font-semibold text-sm tracking-wide">
-            🌴 5BHITM
+          <a href="#" className="flex items-center gap-2.5 group">
+            <span className="text-base leading-none transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
+              🏝️
+            </span>
+            <span className="flex flex-col -space-y-0.5">
+              <span className="text-[11px] font-bold uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-300 via-cyan-300 to-emerald-300 bg-clip-text text-transparent">
+                Koh Samui
+              </span>
+              <span className="text-[9px] font-medium text-gray-500 tracking-wider">
+                Maturareise &apos;26
+              </span>
+            </span>
           </a>
-          <div className="hidden sm:flex gap-7 text-[13px] text-gray-400 font-medium">
+          <div className="hidden md:flex items-center gap-6 text-[13px] text-gray-400 font-medium">
             {[
               ["#crew", "Crew"],
               ["#flights", "Flüge"],
@@ -189,7 +199,7 @@ export default function Page() {
               <a
                 key={href}
                 href={href}
-                className="hover:text-white transition-colors duration-300"
+                className="relative hover:text-white transition-colors duration-300 after:absolute after:-bottom-1 after:left-0 after:w-0 after:h-px after:bg-gradient-to-r after:from-emerald-400 after:to-cyan-400 after:transition-all after:duration-300 hover:after:w-full"
               >
                 {label}
               </a>
