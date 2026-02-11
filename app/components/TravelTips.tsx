@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   X,
   Lightbulb,
@@ -13,13 +13,15 @@ import {
   Utensils,
   MapPin,
   Smartphone,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface Tip {
   icon: React.ReactNode;
   title: string;
   text: string;
-  color: string; // tailwind ring / accent color class
+  color: string;
 }
 
 const tips: Tip[] = [
@@ -90,43 +92,97 @@ export default function TravelTips() {
   const [visible, setVisible] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [direction, setDirection] = useState<"left" | "right">("right");
+  const [paused, setPaused] = useState(false);
+  const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
 
-  const showNextTip = useCallback(() => {
-    if (dismissed) return;
-    setExiting(false);
-    setVisible(true);
+  // Reset auto-advance timer
+  const resetAutoTimer = useCallback(() => {
+    if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+    if (dismissed || !visible || paused) return;
 
-    // Auto-hide after 7s
-    const hideTimer = setTimeout(() => {
-      setExiting(true);
-      setTimeout(() => {
-        setVisible(false);
-        setExiting(false);
-        setCurrentTip((prev) => (prev + 1) % tips.length);
-      }, 400);
-    }, 7000);
+    autoTimerRef.current = setTimeout(() => {
+      goNext();
+    }, 8000);
+  }, [dismissed, visible, paused]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    return () => clearTimeout(hideTimer);
-  }, [dismissed]);
+  // Navigate to next tip
+  const goNext = useCallback(() => {
+    setDirection("right");
+    setCurrentTip((prev) => (prev + 1) % tips.length);
+  }, []);
 
+  // Navigate to previous tip
+  const goPrev = useCallback(() => {
+    setDirection("left");
+    setCurrentTip((prev) => (prev - 1 + tips.length) % tips.length);
+  }, []);
+
+  // Jump to specific tip
+  const goTo = useCallback((index: number) => {
+    setDirection(index > currentTip ? "right" : "left");
+    setCurrentTip(index);
+  }, [currentTip]);
+
+  // Show popup initially after 4s
   useEffect(() => {
-    // First tip appears after 4s
     const initialDelay = setTimeout(() => {
-      showNextTip();
+      setVisible(true);
     }, 4000);
-
     return () => clearTimeout(initialDelay);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Auto-advance timer
   useEffect(() => {
-    if (!visible && !dismissed) {
-      // Next tip after 12s gap
-      const nextTimer = setTimeout(() => {
-        showNextTip();
-      }, 12000);
-      return () => clearTimeout(nextTimer);
+    resetAutoTimer();
+    return () => {
+      if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+    };
+  }, [currentTip, visible, dismissed, paused, resetAutoTimer]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!visible || dismissed) return;
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") {
+        goNext();
+      } else if (e.key === "ArrowLeft") {
+        goPrev();
+      } else if (e.key === "Escape") {
+        handleDismiss();
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [visible, dismissed, goNext, goPrev]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    const diff = touchStartX.current - touchEndX.current;
+    const threshold = 50;
+
+    if (Math.abs(diff) > threshold) {
+      if (diff > 0) {
+        // Swiped left → next
+        goNext();
+      } else {
+        // Swiped right → prev
+        goPrev();
+      }
     }
-  }, [visible, dismissed, showNextTip]);
+  };
 
   const handleDismiss = () => {
     setExiting(true);
@@ -151,11 +207,16 @@ export default function TravelTips() {
 
   return (
     <div
-      className={`fixed bottom-4 right-4 z-50 max-w-[320px] w-[calc(100vw-2rem)] transition-all duration-400 ${
+      className={`fixed bottom-4 right-4 z-50 max-w-[340px] w-[calc(100vw-2rem)] transition-all duration-400 ${
         exiting
           ? "opacity-0 translate-y-4 scale-95"
           : "opacity-100 translate-y-0 scale-100"
       }`}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       <div className="relative backdrop-blur-2xl bg-zinc-900/90 border border-white/[0.08] rounded-2xl p-4 shadow-2xl shadow-black/40">
         {/* Close button */}
@@ -167,15 +228,24 @@ export default function TravelTips() {
           <X className="w-3.5 h-3.5 text-gray-500" />
         </button>
 
-        {/* Content */}
-        <div className="flex items-start gap-3 pr-6">
+        {/* Content with slide animation via key */}
+        <div
+          key={currentTip}
+          className={`flex items-start gap-3 pr-6 animate-fade-slide-in`}
+          style={{
+            // inline keyframe as fallback
+            animation: `fadeSlide 0.3s ease-out`,
+          }}
+        >
           <div
             className={`shrink-0 p-2 rounded-xl bg-white/[0.05] ${tip.color}`}
           >
             {tip.icon}
           </div>
           <div className="min-w-0">
-            <p className={`text-xs font-bold uppercase tracking-wider ${tip.color} mb-1`}>
+            <p
+              className={`text-xs font-bold uppercase tracking-wider ${tip.color} mb-1`}
+            >
               {tip.title}
             </p>
             <p className="text-[13px] text-gray-300 leading-relaxed">
@@ -184,26 +254,70 @@ export default function TravelTips() {
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Footer with nav controls */}
         <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/[0.05]">
-          <div className="flex gap-1">
-            {tips.map((_, i) => (
-              <div
-                key={i}
-                className={`w-1 h-1 rounded-full transition-colors ${
-                  i === currentTip ? "bg-white/60" : "bg-white/10"
-                }`}
-              />
-            ))}
+          {/* Left/Right arrows + dots */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goPrev}
+              className="p-1 rounded-full hover:bg-white/10 transition-colors"
+              aria-label="Vorheriger Tipp"
+            >
+              <ChevronLeft className="w-3.5 h-3.5 text-gray-500" />
+            </button>
+
+            <div className="flex gap-1">
+              {tips.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => goTo(i)}
+                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                    i === currentTip
+                      ? "bg-white/70 scale-125"
+                      : "bg-white/15 hover:bg-white/30"
+                  }`}
+                  aria-label={`Tipp ${i + 1}`}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={goNext}
+              className="p-1 rounded-full hover:bg-white/10 transition-colors"
+              aria-label="Nächster Tipp"
+            >
+              <ChevronRight className="w-3.5 h-3.5 text-gray-500" />
+            </button>
           </div>
-          <button
-            onClick={handleDismissAll}
-            className="text-[11px] text-gray-600 hover:text-gray-400 transition-colors"
-          >
-            Alle Tipps ausblenden
-          </button>
+
+          {/* Counter + Dismiss */}
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-gray-600 font-mono">
+              {currentTip + 1}/{tips.length}
+            </span>
+            <button
+              onClick={handleDismissAll}
+              className="text-[11px] text-gray-600 hover:text-gray-400 transition-colors"
+            >
+              Ausblenden
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Inline keyframe for slide animation */}
+      <style jsx>{`
+        @keyframes fadeSlide {
+          from {
+            opacity: 0;
+            transform: translateX(${direction === "right" ? "12px" : "-12px"});
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }
